@@ -28,8 +28,11 @@ func main() {
 		}
 	}
 	g.sortDeps(root)
+	// TODO(awly): pipe dotgraph directly into stdin of the dot command below
+	// instead of buffering in memory.
 	dotGraph := g.dotDFS(root)
 
+	// TODO(awly): use ioutil.TempFile instead.
 	cmd := exec.Command("dot", "-Tsvg", "-o", "/tmp/deps.svg")
 	cmd.Stdin = strings.NewReader(dotGraph)
 	out, err = cmd.CombinedOutput()
@@ -108,7 +111,7 @@ func (g graph) dotBFS(root string) string {
 		var n *node
 		n, q = q[0], q[1:]
 		for _, dep := range n.deps {
-			fmt.Fprintf(sb, "\t%q -> %q [label=\"%d\"]\n", n.name, dep.name, dep.weight)
+			fmt.Fprintln(sb, edge(n, dep))
 			if !dep.seen {
 				dep.seen = true
 				q = append(q, dep)
@@ -130,10 +133,15 @@ func (g graph) dotDFS(root string) string {
 
 func dotDFSInner(sb *strings.Builder, n *node) {
 	for _, dep := range n.deps {
-		fmt.Fprintf(sb, "\t%q -> %q [label=\"%d\"]\n", n.name, dep.name, dep.weight)
+		fmt.Fprintln(sb, edge(n, dep))
 		if !dep.seen {
 			dep.seen = true
 			dotDFSInner(sb, dep)
 		}
 	}
+}
+
+func edge(from, to *node) string {
+	// TODO(awly): color edge or "to" node based on weight.
+	return fmt.Sprintf("%q -> %q [label=\"%d\"]", from.name, to.name, to.weight)
 }
