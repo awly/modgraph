@@ -28,7 +28,7 @@ func main() {
 		}
 	}
 	g.sortDeps(root)
-	dotGraph := g.dot(root)
+	dotGraph := g.dotDFS(root)
 
 	cmd := exec.Command("dot", "-Tsvg", "-o", "/tmp/deps.svg")
 	cmd.Stdin = strings.NewReader(dotGraph)
@@ -63,11 +63,10 @@ type node struct {
 
 func (n *node) calcWeight() int {
 	if n.weight == 0 {
-		w := 1
+		n.weight = 1
 		for _, dep := range n.deps {
-			w += dep.calcWeight()
+			n.weight += dep.calcWeight()
 		}
-		n.weight = w
 	}
 
 	return n.weight
@@ -101,24 +100,40 @@ func (g graph) sortDeps(root string) {
 	}
 }
 
-func (g graph) dot(root string) string {
+func (g graph) dotBFS(root string) string {
 	sb := &strings.Builder{}
 	fmt.Fprintln(sb, "digraph deps {")
-	fmt.Fprintln(sb, "\trankstep = \"4.0\"")
 	q := []*node{g[root]}
 	for len(q) > 0 {
 		var n *node
 		n, q = q[0], q[1:]
 		for _, dep := range n.deps {
-			if dep.seen {
-				continue
-			}
 			fmt.Fprintf(sb, "\t%q -> %q [label=\"%d\"]\n", n.name, dep.name, dep.weight)
-			dep.seen = true
-			q = append(q, dep)
+			if !dep.seen {
+				dep.seen = true
+				q = append(q, dep)
+			}
 		}
 	}
 
 	fmt.Fprintln(sb, "}")
 	return sb.String()
+}
+
+func (g graph) dotDFS(root string) string {
+	sb := &strings.Builder{}
+	fmt.Fprintln(sb, "digraph deps {")
+	dotDFSInner(sb, g[root])
+	fmt.Fprintln(sb, "}")
+	return sb.String()
+}
+
+func dotDFSInner(sb *strings.Builder, n *node) {
+	for _, dep := range n.deps {
+		fmt.Fprintf(sb, "\t%q -> %q [label=\"%d\"]\n", n.name, dep.name, dep.weight)
+		if !dep.seen {
+			dep.seen = true
+			dotDFSInner(sb, dep)
+		}
+	}
 }
